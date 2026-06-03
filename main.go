@@ -24,7 +24,7 @@ func main() {
 
 	var limite int64 = 5000000
 
-	var numHilos int64 = 100
+	var numHilos int64 = 1000
 
 	rango := limite / numHilos
 
