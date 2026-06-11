@@ -14,7 +14,7 @@ public class Contador extends Thread {
    }
    public static void main(String[] args) throws InterruptedException {
        long limite = 5000000;  
-       int numHilos = 700;         
+       int numHilos = 300;         
        long rango = limite / numHilos;
        Contador[] hilos = new Contador[numHilos];
        for (int i = 0; i < numHilos; i++) {

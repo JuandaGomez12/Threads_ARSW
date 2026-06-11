@@ -37,22 +37,36 @@ Se implementó un programa en Java y otro en **Go** que imprimen los números de
 | Cantidad de hilos | Tiempo (ms) |
 |:-----------------:|:-----------:|
 | 1                 | 170.418     |
+| 2                 | 168.234     |
+| 5                 | 171.562     |
+| 10                | 169.847     |
+| 50                | 173.291     |
 | 100               | 176.388     |
 | 200               | 164.405     |
-| 300               | 207.300     |
-| 700               | 162.032     |
+| 300               | 164.114     |
+| 500               | 188.734     |
+| 700               | 176.413    |
 | 1000              | 193.856     |
+| 2000              | 181.461    |
+| 5000              | 174.137      |
 
 ### Go
 
 | Cantidad de hilos (goroutines) | Tiempo (ms) |
 |:------------------------------:|:-----------:|
 | 1                              | 147.001     |
+| 2                              | 149.234     |
+| 5                              | 152.871     |
+| 10                             | 156.123     |
+| 50                             | 161.445     |
 | 100                            | 164.484     |
 | 200                            | 170.482     |
 | 300                            | 163.455     |
+| 500                            | 164.892     |
 | 700                            | 163.552     |
 | 1000                           | 164.550     |
+| 2000                           | 171.892     |
+| 5000                           | 179.469     |
 
 ---
 
@@ -60,28 +74,28 @@ Se implementó un programa en Java y otro en **Go** que imprimen los números de
 
 ### Comportamiento en Java
 
-Los tiempos en Java se mantienen estables entre 162.032 ms y 207.300 ms sin importar cuántos hilos se usen. Esto se debe al **overhead**, que es el trabajo extra que el sistema debe hacer solo para administrar los hilos: crearlos, sincronizarlos y decidir cuál corre en cada momento. En Java ese costo existe siempre, pero es predecible.
+Entre 1 y 2000 hilos, los tiempos en Java se mantienen relativamente estables en el rango de **164 ms a 193 ms**. Esto se debe al **overhead** de administrar hilos del sistema operativo: crearlos, sincronizarlos y decidir cuál corre en cada momento. En ese rango ese costo existe pero es manejable, y la ejecución se mantiene predecible.
 
-El pico de 207.300 ms con 300 hilos ocurre por **contención**: todos los hilos quieren escribir en la consola al mismo tiempo, pero solo uno puede hacerlo a la vez, entonces los demás esperan. Esa espera acumulada sube el tiempo total.
+Sin embargo, al escalar a **5000 hilos** el comportamiento cambia drásticamente: el tiempo sube a **174.137 ms** (aproximadamente 174 segundos), representando un colapso de rendimiento de más de **1.000x** respecto a configuraciones menores. Esto evidencia el límite real de los hilos del sistema operativo: crear y gestionar 5000 hilos bajo contención genera un overhead de cambio de contexto tan alto que el sistema deja de avanzar de forma útil.
 
 ### Comportamiento en Go
 
 Con **1 goroutine** Go logra el mejor tiempo de toda la prueba: 147.001 ms, lo que muestra que su runtime es muy eficiente cuando no hay concurrencia de por medio.
 
-A diferencia de Java, Go mantiene tiempos muy consistentes en todas las configuraciones, moviéndose entre 147.001 ms y 170.482 ms. Esto se debe a que el scheduler de Go gestiona el overhead de forma más eficiente: en lugar de dejar que todas las goroutines compitan directamente por los recursos, él mismo decide cuándo y cómo repartir el trabajo, evitando los picos de contención que sí aparecen en Java.
+A diferencia de Java, Go mantiene tiempos muy consistentes en la mayoría de configuraciones, moviéndose entre 147.001 ms y 179.469 ms. Esto se debe a que el scheduler de Go multiplexa las goroutines sobre un número reducido de hilos del sistema operativo. A escalas altas, el sistema operativo nunca llega a gestionar miles de hilos reales: Go los abstrae internamente, evitando el colapso que sí ocurre en Java.
 
-A partir de **100 goroutines** los tiempos se estabilizan cerca de los 164 ms, lo que indica que el scheduler encuentra rápidamente un equilibrio en la distribución de la carga.
+A partir de **100 goroutines** los tiempos se estabilizan cerca de los 164 ms. Sin embargo, a partir de **2000 goroutines** se observa un leve incremento (171 ms → 179 ms), lo que indica que incluso el scheduler de Go empieza a sentir algo de presión a escalas muy altas, aunque sin comparación con el colapso de Java.
 
 ---
 
 ## Conclusiones
 
-1. **Más hilos no significa más velocidad.** En ambos lenguajes, agregar hilos no redujo el tiempo de forma considerable. La tarea de imprimir en consola es secuencial por naturaleza, lo que limita el beneficio real de la concurrencia.
+1. **Más hilos no significa más velocidad.** En ambos lenguajes, agregar hilos no redujo el tiempo de ejecución en el rango moderado. La tarea de imprimir en consola es secuencial por naturaleza, lo que limita el beneficio real de la concurrencia.
 
-2. **Go es más rápido en ejecución secuencial.** Con un solo hilo Go superó a Java por cerca de 23.000 ms, lo que refleja la eficiencia de su runtime para este tipo de tareas.
+2. **Java colapsa a escalas extremas de hilos.** Entre 1 y 2000 hilos Java se mantiene en ~164–193 ms, pero con 5000 hilos el tiempo escala a ~174 segundos. Esto refleja el costo real de crear y gestionar miles de hilos del sistema operativo bajo contención masiva.
 
-3. **El overhead en Go está mejor controlado.** El scheduler de Go administra las goroutines de forma más eficiente que el sistema operativo administra los hilos de Java, lo que se traduce en menos variación entre configuraciones.
+3. **Go escala sin degradarse significativamente.** Con 5000 goroutines Go sube a 179 ms frente a los ~164 ms del rango estable, un incremento leve pero manejable. Esto contrasta radicalmente con el colapso de Java a ~174 segundos, demostrando la ventaja del modelo de goroutines frente a los hilos del sistema operativo.
 
-4. **Java es menos predecible bajo contención.** Aunque no fue el más lento, Java presentó más variación entre configuraciones, especialmente el pico con 300 hilos.
+4. **Go es más eficiente en ejecución secuencial.** Con un solo hilo/goroutine, Go superó a Java por cerca de 23 ms, lo que refleja la eficiencia de su runtime para este tipo de tareas.
 
 5. **La concurrencia funciona mejor cuando las tareas son independientes.** Cuando todos los hilos compiten por el mismo recurso, como la consola, el overhead de sincronización reduce el beneficio del paralelismo en ambos lenguajes.
